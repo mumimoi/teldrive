@@ -11,7 +11,7 @@ MODULE_PATH := $(shell go list -m)
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
 
-.PHONY: all build run clean frontend backend run sync-ui retag patch-version minor-version
+.PHONY: all build run clean backend run sync-ui retag patch-version minor-version
  
 all: build
 
@@ -23,28 +23,11 @@ SHELL := /bin/bash
 BINARY_EXTENSION:=
 endif
 
-frontend:
-	@echo "Extract UI"
-ifeq ($(OS),Windows_NT)
-	powershell -Command "Remove-Item -Path $(FRONTEND_DIR) -Recurse -Force"
-	powershell -Command "Invoke-WebRequest -Uri $(FRONTEND_ASSET) -OutFile teldrive-ui.zip"
-	powershell -Command "if (!(Test-Path -Path $(subst /,\\,$(FRONTEND_DIR)))) { New-Item -ItemType Directory -Force -Path $(subst /,\\,$(FRONTEND_DIR)) }"
-	powershell -Command "Expand-Archive -Path teldrive-ui.zip -DestinationPath $(FRONTEND_DIR) -Force"
-	powershell -Command "Remove-Item -Path teldrive-ui.zip -Force"
-else
-	rm -rf $(FRONTEND_DIR)
-	curl -LO $(FRONTEND_ASSET) -o teldrive-ui.zip
-	mkdir -p $(FRONTEND_DIR)
-	unzip -d $(FRONTEND_DIR) teldrive-ui.zip
-	rm -rf teldrive-ui.zip
-endif
-
-
 backend:
 	@echo "Building backend for $(GOOS)/$(GOARCH)..."
 	go build -trimpath -ldflags "-s -w -X $(MODULE_PATH)/internal/config.Version=$(GIT_TAG) -extldflags=-static" -o $(BUILD_DIR)/$(APP_NAME)$(BINARY_EXTENSION)
 
-build: frontend backend
+build: backend
 	@echo "Building complete."
 
 run:
