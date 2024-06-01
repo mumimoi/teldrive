@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/WinterYukky/gorm-extra-clause-plugin/exclause"
 	"github.com/divyam234/teldrive/internal/cache"
 	"github.com/divyam234/teldrive/internal/category"
 	"github.com/divyam234/teldrive/internal/config"
@@ -187,46 +189,96 @@ func (fs *FileService) ListFiles(userId int64, fquery *schemas.FileQuery) (*sche
 	}
 
 	query := fs.db.Limit(fquery.PerPage)
-
-	filter := &models.File{UserID: userId, Status: "active"}
-
 	setOrderFilter(query, fquery)
 
 	if fquery.Op == "list" {
-
+		filter := &models.File{UserID: userId, Status: "active"}
 		query.Order("type DESC").Order(getOrder(fquery)).Where("parent_id = ?", pathId).
 			Model(filter).Where(&filter)
 
 	} else if fquery.Op == "find" {
+		if !fquery.DeepSearch && pathId != "" && (fquery.Name != "" || fquery.Query != "") {
+			query.Where("parent_id = ?", pathId)
+			fquery.Path = ""
+		} else if fquery.DeepSearch && pathId != "" && fquery.Query != "" {
+			query = fs.db.Clauses(exclause.With{Recursive: true, CTEs: []exclause.CTE{{Name: "subdirs",
+				Subquery: exclause.Subquery{DB: fs.db.Model(&models.File{Id: pathId}).Select("id", "parent_id").Clauses(exclause.NewUnion("ALL ?",
+					fs.db.Table("teldrive.files as f").Select("f.id", "f.parent_id").
+						Joins("inner join subdirs ON f.parent_id = subdirs.id")))}}}}).Where("files.id in (select id  from subdirs)")
+			fquery.Path = ""
+		}
 
+		if fquery.UpdatedAt != "" {
+			dateFilters := strings.Split(fquery.UpdatedAt, ",")
+			for _, dateFilter := range dateFilters {
+				parts := strings.Split(dateFilter, ":")
+				if len(parts) == 2 {
+					op, date := parts[0], parts[1]
+					t, err := time.Parse(time.DateOnly, date)
+					if err != nil {
+						return nil, &types.AppError{Error: err}
+					}
+					formattedDate := t.Format(time.RFC3339)
+					switch op {
+					case "gte":
+						query.Where("updated_at >= ?", formattedDate)
+					case "lte":
+						query.Where("updated_at <= ?", formattedDate)
+					case "eq":
+						query.Where("updated_at = ?", formattedDate)
+					case "gt":
+						query.Where("updated_at > ?", formattedDate)
+					case "lt":
+						query.Where("updated_at < ?", formattedDate)
+					}
+				}
+			}
+		}
+
+		if fquery.Query != "" {
+			query.Where("teldrive.get_tsquery(?) @@ teldrive.get_tsvector(name)", fquery.Query)
+		}
+
+		if fquery.Category != "" {
+			categories := strings.Split(fquery.Category, ",")
+			var filterQuery *gorm.DB
+			if categories[0] == "folder" {
+				filterQuery = fs.db.Where("type = ?", categories[0])
+			} else {
+				filterQuery = fs.db.Where("category = ?", categories[0])
+			}
+
+			if len(categories) > 1 {
+				for _, category := range categories[1:] {
+					if category == "folder" {
+						filterQuery.Or("type = ?", category)
+					} else {
+						filterQuery.Or("category = ?", category)
+					}
+				}
+			}
+			query.Where(filterQuery)
+
+		}
+
+		filter := &models.File{UserID: userId, Status: "active"}
 		filter.Name = fquery.Name
-		filter.Type = fquery.Type
 		filter.ParentID = fquery.ParentID
-		filter.Category = fquery.Category
 		filter.Path = fquery.Path
 		filter.Type = fquery.Type
 		if fquery.Starred != nil {
 			filter.Starred = *fquery.Starred
 		}
 
-		if fquery.Path != "" && fquery.Name != "" {
-			filter.ParentID = pathId
-			filter.Path = ""
-		}
-
 		query.Order("type DESC").Order(getOrder(fquery)).
 			Model(&filter).Where(&filter)
 
-	} else if fquery.Op == "search" {
-
-		query.Where("teldrive.get_tsquery(?) @@ teldrive.get_tsvector(name)", fquery.Search)
-
-		query.Order(getOrder(fquery)).
-			Model(&filter).Where(&filter)
+		query.Limit(fquery.PerPage)
+		setOrderFilter(query, fquery)
 	}
 
-	if fquery.Path == "" {
-		query.Select("*,(select path from teldrive.files as f where f.id = files.parent_id) as parent_path")
+	if fquery.Path == "" || fquery.DeepSearch {
+		query.Select("*,(select path from teldrive.files as ff where ff.id = files.parent_id) as parent_path")
 	}
 
 	files := []schemas.FileOut{}
@@ -255,7 +307,7 @@ func (fs *FileService) getPathId(path string, userId int64) (string, error) {
 		return "", database.ErrNotFound
 
 	}
-	return file.ID, nil
+	return file.Id, nil
 }
 
 func (fs *FileService) MakeDirectory(userId int64, payload *schemas.MkDir) (*schemas.FileOut, *types.AppError) {
@@ -442,7 +494,7 @@ func (fs *FileService) CopyFile(c *gin.Context) (*schemas.FileOut, *types.AppErr
 	dbFile.UserID = userId
 	dbFile.Starred = false
 	dbFile.Status = "active"
-	dbFile.ParentID = dest.ID
+	dbFile.ParentID = dest.Id
 	dbFile.ChannelID = &channelId
 	dbFile.Encrypted = file.Encrypted
 	dbFile.Category = file.Category
@@ -537,7 +589,7 @@ func (fs *FileService) GetFileStream(c *gin.Context) {
 	c.Header("Content-Type", mimeType)
 
 	c.Header("Content-Length", strconv.FormatInt(contentLength, 10))
-	c.Header("E-Tag", fmt.Sprintf("\"%s\"", md5.FromString(file.ID+strconv.FormatInt(file.Size, 10))))
+	c.Header("E-Tag", fmt.Sprintf("\"%s\"", md5.FromString(file.Id+strconv.FormatInt(file.Size, 10))))
 	c.Header("Last-Modified", file.UpdatedAt.UTC().Format(http.TimeFormat))
 
 	disposition := "inline"

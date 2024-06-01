@@ -10,19 +10,20 @@ type Part struct {
 }
 
 type FileQuery struct {
-	Name          string     `form:"name"`
-	Search        string     `form:"search"`
-	Type          string     `form:"type"`
-	Path          string     `form:"path"`
-	Op            string     `form:"op"`
-	Starred       *bool      `form:"starred"`
-	ParentID      string     `form:"parentId"`
-	Category      string     `form:"category"`
-	UpdatedAt     *time.Time `form:"updatedAt"`
-	Sort          string     `form:"sort"`
-	Order         string     `form:"order"`
-	PerPage       int        `form:"perPage"`
-	NextPageToken string     `form:"nextPageToken"`
+	Name          string `form:"name"`
+	Query         string `form:"query"`
+	Type          string `form:"type"`
+	Path          string `form:"path"`
+	Op            string `form:"op"`
+	DeepSearch    bool   `form:"deepSearch"`
+	Starred       *bool  `form:"starred"`
+	ParentID      string `form:"parentId"`
+	Category      string `form:"category"`
+	UpdatedAt     string `form:"updatedAt"`
+	Sort          string `form:"sort"`
+	Order         string `form:"order"`
+	PerPage       int    `form:"perPage"`
+	NextPageToken string `form:"nextPageToken"`
 }
 
 type FileIn struct {
@@ -38,7 +39,7 @@ type FileIn struct {
 }
 
 type FileOut struct {
-	ID         string    `json:"id"`
+	Id         string    `json:"id"`
 	Name       string    `json:"name"`
 	Type       string    `json:"type"`
 	MimeType   string    `json:"mimeType"`

@@ -21,7 +21,7 @@ require (
 	github.com/thoas/go-funk v0.9.3
 	github.com/vmihailenco/msgpack v4.0.4+incompatible
 	go.etcd.io/bbolt v1.3.10
-	go.uber.org/fx v1.21.1
+	go.uber.org/fx v1.22.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/time v0.5.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
@@ -30,6 +30,7 @@ require (
 )
 
 require (
+	github.com/WinterYukky/gorm-extra-clause-plugin v0.2.1 // indirect
 	github.com/bytedance/sonic/loader v0.1.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
