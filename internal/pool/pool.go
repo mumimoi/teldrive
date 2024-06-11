@@ -8,7 +8,6 @@ import (
 	"github.com/divyam234/teldrive/internal/logging"
 	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/tg"
-	"go.uber.org/multierr"
 	"go.uber.org/zap"
 )
 
@@ -90,7 +89,8 @@ func (p *pool) Default(ctx context.Context) *tg.Client {
 
 func (p *pool) Close() (err error) {
 
-	err = multierr.Append(err, p.close())
-
-	return err
+	if p.close != nil {
+		return p.close()
+	}
+	return nil
 }
