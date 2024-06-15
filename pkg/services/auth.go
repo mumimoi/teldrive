@@ -133,7 +133,7 @@ func (as *AuthService) LogIn(c *gin.Context, session *schemas.TgSession) (*schem
 
 	//create session
 	if err := as.db.Create(&models.Session{UserId: session.UserID, Hash: hexToken,
-		Session: session.Sesssion, AuthHash: GenAuthHash(auth)}).Error; err != nil {
+		Session: session.Sesssion, SessionDate: auth.DateCreated}).Error; err != nil {
 		return nil, &types.AppError{Error: err}
 	}
 
@@ -168,8 +168,11 @@ func (as *AuthService) GetSession(c *gin.Context) *schemas.Session {
 
 	newExpires := now.Add(as.cnf.JWT.SessionTime)
 
+	userId, _ := strconv.ParseInt(jwePayload.Subject, 10, 64)
+
 	session := &schemas.Session{Name: jwePayload.Name,
 		UserName: jwePayload.UserName,
+		UserId:   userId,
 		Hash:     jwePayload.Hash,
 		Expires:  newExpires.Format(time.RFC3339)}
 

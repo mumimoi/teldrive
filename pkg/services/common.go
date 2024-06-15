@@ -3,11 +3,8 @@ package services
 import (
 	"bytes"
 	"context"
-	"crypto/md5"
 	"crypto/rand"
 	"encoding/binary"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"math"
@@ -359,23 +356,13 @@ func DeleteTGMessages(ctx context.Context, cnf *config.TGConfig, session string,
 			start := i * batchSize
 			end := min((i+1)*batchSize, len(ids))
 			batchIds := ids[start:end]
-			go func() error {
+			g.Go(func() error {
 				messageDeleteRequest := tg.ChannelsDeleteMessagesRequest{Channel: channel, ID: batchIds}
 				_, err = client.API().ChannelsDeleteMessages(ctx, &messageDeleteRequest)
 				return err
-			}()
+			})
 		}
-
 		return g.Wait()
 	})
 	return err
-}
-
-func GenAuthHash(auth *tg.Authorization) string {
-	auth.Flags = 0
-	auth.DateActive = 0
-	auth.Current = false
-	b, _ := json.Marshal(auth)
-	hash := md5.Sum(b)
-	return hex.EncodeToString(hash[:])
 }
