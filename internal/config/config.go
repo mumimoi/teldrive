@@ -17,6 +17,8 @@ type ServerConfig struct {
 	Port             int
 	GracefulShutdown time.Duration
 	EnablePprof      bool
+	ReadTimeout      time.Duration
+	WriteTimeout     time.Duration
 }
 
 type CronJobConfig struct {
@@ -51,6 +53,7 @@ type TGConfig struct {
 		Retention     time.Duration
 	}
 	Stream struct {
+		BotsOffset   int
 		MultiThreads int
 		Buffers      int
 		ChunkTimeout time.Duration
